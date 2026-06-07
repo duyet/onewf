@@ -1,0 +1,34 @@
+{
+  "name": "onewf",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "workflows": [
+    { "name": "CRON_DISPATCHER", "binding": "CRON_DISPATCHER", "class_name": "CronDispatcherWorkflow" },
+    { "name": "CF_BILLING", "binding": "CF_BILLING", "class_name": "CfBillingWorkflow" },
+    { "name": "ANYROUTER", "binding": "ANYROUTER", "class_name": "AnyRouterWorkflow" },
+    { "name": "GCP_BILLING", "binding": "GCP_BILLING", "class_name": "GcpBillingWorkflow" },
+    { "name": "ALERT_DISPATCH", "binding": "ALERT_DISPATCH", "class_name": "AlertDispatchWorkflow" }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "onewf-db", "database_id": "placeholder-id" }
+  ],
+  "kv_namespaces": [
+    { "binding": "CONFIG_KV", "id": "placeholder-kv-id" },
+    { "binding": "IDEMPOTENCY_KV", "id": "placeholder-idempotency-kv-id" }
+  ],
+  "r2_buckets": [
+    { "binding": "R2", "bucket_name": "onewf-data" }
+  ],
+  "limits": {
+    "cpu_ms": 50,
+    "memory_mb": 128
+  }
+}

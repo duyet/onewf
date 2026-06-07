@@ -1,0 +1,32 @@
+{
+  "name": "onewf",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate:local": "wrangler d1 migrations apply onewf-db --local",
+    "migrate:remote": "wrangler d1 migrations apply onewf-db --remote",
+    "logs": "wrangler tail",
+    "logs:once": "wrangler tail --once",
+    "cli": "bun run src/cli/index.ts",
+    "cf-typegen": "wrangler types --env-interface Env"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.13",
+    "@cloudflare/workers-types": "^4.20260606.1",
+    "@types/bun": "latest",
+    "drizzle-orm": "^0.45.2",
+    "miniflare": "^4.20260603.0",
+    "vitest": "^4.1.8",
+    "wrangler": "^4.98.0",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
