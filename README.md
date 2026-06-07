@@ -12,36 +12,57 @@ A production-grade alerting platform built on Cloudflare Workflows for multi-sou
 
 ## Architecture
 
-```
-┌─────────────────┐
-│  Cron Trigger   │  */15 * * * *
-│  (1 of 5 free)  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────────┐
-│  CronDispatcherWorkflow │  Loads config, creates source workflow instances
-└────────┬────────────────┘
-         │
-    ┌────┴────┬──────────────┐
-    ▼         ▼              ▼
-┌────────┐ ┌────────┐   ┌────────┐
-│CF Bill │ │AnyRouter│   │GCP Bill│
-│Workflow│ │Workflow │   │Workflow│
-└────┬───┘ └────┬────┘   └────┬───┘
-     │          │             │
-     └──────────┼─────────────┘
-                ▼
-      ┌─────────────────┐
-      │AlertDispatchWkfl│  Fans out to channels, writes D1 history
-      └────────┬────────┘
-               │
-      ┌────────┼────────┬────────┐
-      ▼        ▼        ▼        ▼
-   ┌─────┐ ┌───────┐ ┌───────┐ ┌────────┐
-   │Slack│ │Telegram│ │Webhook│ │  D1    │
-   │Chan │ │ Chan  │ │ Chan  │ │ History│
-   └─────┘ └───────┘ └───────┘ └────────┘
+```mermaid
+flowchart TD
+    subgraph Cron["Cron Trigger (1 of 5 free)"]
+        direction TB
+        CronTrigger["*/15 * * * *"]
+    end
+
+    CronTrigger --> Dispatcher["CronDispatcherWorkflow"]
+    Dispatcher -->|Creates instance per source| CFBilling["CfBillingWorkflow"]
+    Dispatcher -->|Creates instance per source| AnyRouter["AnyRouterWorkflow"]
+    Dispatcher -->|Creates instance per source| GCPBilling["GcpBillingWorkflow"]
+
+    subgraph SourceWorkflows["Source Workflows"]
+        CFBilling
+        AnyRouter
+        GCPBilling
+    end
+
+    CFBilling -->|Fetches metrics via Adapter| CFAdapter["CloudflareBillingAdapter"]
+    AnyRouter -->|Fetches metrics via Adapter| ARAdapter["AnyRouterAdapter"]
+    GCPBilling -->|Fetches metrics via Adapter| GCPAdapter["GcpBillingAdapter"]
+
+    CFAdapter -->|REST API + Bearer Token| CFAPI["api.cloudflare.com"]
+    ARAdapter -->|REST API + Bearer Token| ARAPI["api.anyrouter.dev"]
+    GCPAdapter -->|OAuth2 JWT → Access Token| GCPAPI["cloudbilling.googleapis.com"]
+
+    CFBilling -->|Evaluates thresholds| AlertDispatch["AlertDispatchWorkflow"]
+    AnyRouter -->|Evaluates thresholds| AlertDispatch
+    GCPBilling -->|Evaluates thresholds| AlertDispatch
+
+    AlertDispatch -->|Writes history| D1[("D1 Database\nalert_history")]
+    AlertDispatch -->|Idempotency check| KV[("KV Namespace\nidempotency_24h")]
+
+    AlertDispatch -->|Fans out to channels| Slack["SlackChannel\nBlocks + Emoji"]
+    AlertDispatch -->|Fans out to channels| Telegram["TelegramChannel\nMarkdown"]
+    AlertDispatch -->|Fans out to channels| Webhook["WebhookChannel\nHMAC-SHA256"]
+
+    Slack -->|POST webhook| SlackAPI["hooks.slack.com"]
+    Telegram -->|POST bot API| TelegramAPI["api.telegram.org"]
+    Webhook -->|POST + HMAC| WebhookAPI["Custom Endpoint"]
+
+    style Dispatcher fill:#1e3a5f,color:#fff
+    style AlertDispatch fill:#1e3a5f,color:#fff
+    style D1 fill:#0d2818,color:#fff
+    style KV fill:#3d2b0d,color:#fff
+    style CFAPI fill:#1a1a2e,color:#fff
+    style ARAPI fill:#1a1a2e,color:#fff
+    style GCPAPI fill:#1a1a2e,color:#fff
+    style SlackAPI fill:#1a1a2e,color:#fff
+    style TelegramAPI fill:#1a1a2e,color:#fff
+    style WebhookAPI fill:#1a1a2e,color:#fff
 ```
 
 ## Quick Start
@@ -190,15 +211,11 @@ src/
 └── index.ts           # Worker entrypoint
 ```
 
-## Extending
+## Documentation
 
-See [EXTENDING.md](docs/EXTENDING.md) for guides on:
-- Adding a new source adapter
-- Adding a new alert channel
-
-## Cost Analysis
-
-See [COST.md](docs/COST.md) for detailed cost breakdown.
+- [Extending](docs/extending.md) — Adding new source adapters and alert channels
+- [Cost Analysis](docs/cost.md) — Free tier breakdown and paid projections
+- [Configuration Reference](docs/config.md) — Complete config schema and secrets
 
 ## License
 
