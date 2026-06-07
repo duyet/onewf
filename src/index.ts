@@ -3,6 +3,7 @@ import { CfBillingWorkflow } from "./workflows/cf-billing";
 import { AnyRouterWorkflow } from "./workflows/anyrouter";
 import { GcpBillingWorkflow } from "./workflows/gcp-billing";
 import { AlertDispatchWorkflow } from "./workflows/alert-dispatch";
+import { handleWebhook } from "./webhooks/handler";
 
 export interface Env {
   DB: D1Database;
@@ -14,6 +15,9 @@ export interface Env {
   ANYROUTER: Workflow;
   GCP_BILLING: Workflow;
   ALERT_DISPATCH: Workflow;
+  CLERK_WEBHOOK_SECRET: string;
+  GCP_WEBHOOK_SECRET: string;
+  GENERIC_WEBHOOK_SECRET: string;
 }
 
 export default {
@@ -21,7 +25,7 @@ export default {
     const url = new URL(req.url);
 
     if (req.method === "GET" && url.pathname === "/") {
-      return Response.json({ status: "ok", service: "onalert" });
+      return Response.json({ status: "ok", service: "onewf" });
     }
 
     if (req.method === "GET" && url.pathname.startsWith("/workflows/")) {
@@ -39,6 +43,14 @@ export default {
       } catch {
         return Response.json({ error: "Workflow not found" }, { status: 404 });
       }
+    }
+
+    if (req.method === "POST" && url.pathname.startsWith("/webhooks/")) {
+      const source = url.pathname.split("/webhooks/")[1];
+      if (!source) {
+        return Response.json({ error: "Webhook source required" }, { status: 400 });
+      }
+      return handleWebhook(req, env, source);
     }
 
     return Response.json({ error: "Not found" }, { status: 404 });

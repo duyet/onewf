@@ -1,7 +1,7 @@
 import type { DbClient } from "./client";
-import { alertHistory, alertChannels, sourceConfig } from "./schema";
-import { eq, desc } from "drizzle-orm";
-import type { NewAlertHistory, NewAlertChannel, NewSourceConfig } from "./schema";
+import { alertHistory, alertChannels, sourceConfig, webhookEvents } from "./schema";
+import { eq, desc, and } from "drizzle-orm";
+import type { NewAlertHistory, NewAlertChannel, NewSourceConfig, NewWebhookEvent } from "./schema";
 
 export async function writeAlertHistory(db: DbClient, alert: NewAlertHistory) {
   return db.insert(alertHistory).values(alert);
@@ -97,4 +97,43 @@ export async function updateSourceConfig(db: DbClient, id: string, config: Parti
 
 export async function deleteSourceConfig(db: DbClient, id: string) {
   return db.delete(sourceConfig).where(eq(sourceConfig.id, id));
+}
+
+export async function createWebhookEvent(db: DbClient, event: NewWebhookEvent) {
+  return db.insert(webhookEvents).values(event);
+}
+
+export async function getWebhookEvent(db: DbClient, id: string) {
+  const result = await db.select().from(webhookEvents).where(eq(webhookEvents.id, id)).limit(1);
+  return result[0];
+}
+
+export async function getUnprocessedWebhookEvents(db: DbClient, limit = 100) {
+  return db
+    .select()
+    .from(webhookEvents)
+    .where(eq(webhookEvents.processed, false))
+    .orderBy(webhookEvents.receivedAt)
+    .limit(limit);
+}
+
+export async function markWebhookEventProcessed(db: DbClient, id: string, error?: string) {
+  return db
+    .update(webhookEvents)
+    .set({
+      processed: true,
+      processedAt: Date.now(),
+      error: error ?? null,
+    })
+    .where(eq(webhookEvents.id, id));
+}
+
+export async function getWebhookEventsBySource(db: DbClient, source: string, limit = 100, offset = 0) {
+  return db
+    .select()
+    .from(webhookEvents)
+    .where(eq(webhookEvents.source, source))
+    .orderBy(desc(webhookEvents.receivedAt))
+    .limit(limit)
+    .offset(offset);
 }

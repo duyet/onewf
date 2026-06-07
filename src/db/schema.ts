@@ -42,9 +42,30 @@ export const sourceConfig = sqliteTable("source_config", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+export const webhookEvents = sqliteTable("webhook_events", {
+  id: text("id").primaryKey(),
+  source: text("source").notNull(), // clerk, gcp, generic, etc.
+  eventType: text("event_type").notNull(), // user.created, billing.updated, etc.
+  payload: text("payload").notNull(), // JSON string of the full payload
+  headers: text("headers"), // JSON string of relevant headers
+  signature: text("signature"), // Webhook signature for verification
+  verified: integer("verified", { mode: "boolean" }).notNull().default(false),
+  processed: integer("processed", { mode: "boolean" }).notNull().default(false),
+  error: text("error"), // Processing error if any
+  receivedAt: integer("received_at").notNull(),
+  processedAt: integer("processed_at"),
+}, (table) => ({
+  sourceIdx: index("idx_webhook_events_source").on(table.source),
+  eventTypeIdx: index("idx_webhook_events_event_type").on(table.eventType),
+  receivedAtIdx: index("idx_webhook_events_received_at").on(table.receivedAt),
+  processedIdx: index("idx_webhook_events_processed").on(table.processed),
+}));
+
 export type AlertHistory = typeof alertHistory.$inferSelect;
 export type NewAlertHistory = typeof alertHistory.$inferInsert;
 export type AlertChannel = typeof alertChannels.$inferSelect;
 export type NewAlertChannel = typeof alertChannels.$inferInsert;
 export type SourceConfig = typeof sourceConfig.$inferSelect;
 export type NewSourceConfig = typeof sourceConfig.$inferInsert;
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
+export type NewWebhookEvent = typeof webhookEvents.$inferInsert;
