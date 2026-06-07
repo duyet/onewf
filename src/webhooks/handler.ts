@@ -59,15 +59,18 @@ const DEFAULT_SOURCES: Record<string, WebhookSourceConfig> = {
         false,
         ["verify"]
       );
-      const sigBytes = new Uint8Array(
-        signature.replace("sha256=", "").split("").map((c) => c.charCodeAt(0))
-      );
+      const hexSig = signature.replace("sha256=", "");
+      const sigBytes = new Uint8Array(hexSig.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) ?? []);
       return crypto.subtle.verify("HMAC", key, sigBytes, payloadData);
     },
   },
 };
 
 export async function handleWebhook(req: Request, env: Env, source: string): Promise<Response> {
+  if (!source) {
+    return Response.json({ error: "Webhook source required" }, { status: 400 });
+  }
+
   const sourceConfig = DEFAULT_SOURCES[source];
   if (!sourceConfig) {
     return Response.json({ error: "Unknown webhook source" }, { status: 400 });
@@ -122,7 +125,7 @@ function getSecretForSource(env: Env, source: string): string {
   }
 }
 
-function extractEventType(payload: string, source: string): string {
+export function extractEventType(payload: string, source: string): string {
   try {
     const data = JSON.parse(payload);
     switch (source) {
